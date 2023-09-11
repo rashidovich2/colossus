@@ -31,7 +31,7 @@ def qs(context, **kwargs):
 
 @register.filter
 def get(collection: Any, key: Any):
-    if type(collection) == list or type(collection) == tuple:
+    if type(collection) in [list, tuple]:
         try:
             key = int(key)
             return collection[key]
@@ -50,18 +50,15 @@ def percentage(value):
 
 @register.filter
 def calc_percentage(value, total):
-    if total > 0:
-        return percentage(value / total)
-    return 0.0
+    return percentage(value / total) if total > 0 else 0.0
 
 
 @register.filter
 def flag(country_code):
-    if country_code is not None:
-        html = '<span class="flag-icon flag-icon-%s mr-2"></span>' % country_code.lower()
-        return mark_safe(html)
-    else:
+    if country_code is None:
         return ''
+    html = f'<span class="flag-icon flag-icon-{country_code.lower()} mr-2"></span>'
+    return mark_safe(html)
 
 
 @register.filter
@@ -76,8 +73,7 @@ def domain_icon(domain):
         '@live.com': 'fab fa-microsoft',
         '@yandex.ru': 'fab fa-yandex'
     }
-    if domain in domains:
-        icon = domains[domain]
-    else:
-        icon = 'far fa-envelope'
-    return mark_safe('<span class="%s d-inline-block mr-2" style="width: 16px"></span>' % icon)
+    icon = domains.get(domain, 'far fa-envelope')
+    return mark_safe(
+        f'<span class="{icon} d-inline-block mr-2" style="width: 16px"></span>'
+    )

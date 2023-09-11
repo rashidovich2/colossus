@@ -101,11 +101,10 @@ class ConfirmSubscriberImportForm(forms.ModelForm):
         """
         subscriber_import: SubscriberImport = super().save(commit=False)
 
-        mapping = dict()
+        mapping = {}
         for index, heading in enumerate(self.headings):
             column_field_name = self._field_key(index)
-            value = self.cleaned_data.get(column_field_name, '')
-            if value:
+            if value := self.cleaned_data.get(column_field_name, ''):
                 mapping[index] = value
 
         subscriber_import.set_columns_mapping(mapping)
@@ -161,7 +160,7 @@ class PasteImportSubscribersForm(forms.Form):
     )
 
     def import_subscribers(self, mailing_list):
-        cached_domains = dict()
+        cached_domains = {}
         emails = self.cleaned_data.get('emails')
         status = self.cleaned_data.get('status')
 
@@ -169,7 +168,7 @@ class PasteImportSubscribersForm(forms.Form):
             for email in emails:
 
                 email_name, domain_part = email.rsplit('@', 1)
-                domain_name = '@' + domain_part
+                domain_name = f'@{domain_part}'
 
                 try:
                     domain = cached_domains[domain_name]

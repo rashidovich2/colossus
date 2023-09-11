@@ -12,8 +12,7 @@ class EmailTemplateManager(models.Manager):
     @classmethod
     def default_content(cls):
         default_content = get_template('templates/default_email_template_content.html')
-        content = default_content.template.source
-        return content
+        return default_content.template.source
 
 
 class EmailTemplate(models.Model):

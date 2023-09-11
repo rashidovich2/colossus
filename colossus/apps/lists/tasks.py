@@ -62,7 +62,7 @@ def clean_list_task(mailing_list_id):
         return 'Cleaned %(cleaned)s emails from mailing list %(mailing_list_id)s' % data
 
     except MailingList.DoesNotExist:
-        return 'Mailing list with id "%s" does not exist.' % mailing_list_id
+        return f'Mailing list with id "{mailing_list_id}" does not exist.'
 
 
 @shared_task
@@ -82,109 +82,114 @@ def import_subscribers(subscriber_import_id: Union[str, int]) -> str:
     """
     try:
         subscriber_import = SubscriberImport.objects.get(pk=subscriber_import_id)
-        if subscriber_import.status == ImportStatus.QUEUED:
+        if subscriber_import.status != ImportStatus.QUEUED:
+            return f'The subscriber import file "{subscriber_import_id}" was not queued to be imported.'
+        # Start import process
+        subscriber_import.status = ImportStatus.IMPORTING
+        subscriber_import.save(update_fields=['status'])
 
-            # Start import process
-            subscriber_import.status = ImportStatus.IMPORTING
-            subscriber_import.save(update_fields=['status'])
+        import_status: int
+        notification_action: int
+        output_message = ''
+        cached_domains: Dict[str, Domain] = {}
 
-            import_status: int
-            notification_action: int
-            output_message = ''
-            cached_domains: Dict[str, Domain] = dict()
+        try:
+            columns_mapping = subscriber_import.get_columns_mapping()
+            subscriber_created = 0
+            subscriber_updated = 0
+            subscriber_skipped = 0
 
-            try:
-                columns_mapping = subscriber_import.get_columns_mapping()
-                subscriber_created = 0
-                subscriber_updated = 0
-                subscriber_skipped = 0
+            with open(subscriber_import.file.path, 'r') as csvfile:
+                reader = csv.reader(csvfile)
 
-                with open(subscriber_import.file.path, 'r') as csvfile:
-                    reader = csv.reader(csvfile)
+                next(reader)
 
-                    # FIXME: determine if needs to skip the first line or not
-                    if True:
-                        next(reader)
+                with transaction.atomic():
+                    for row in reader:
+                        subscriber = None
 
-                    with transaction.atomic():
-                        for row in reader:
-                            subscriber = None
+                        defaults = {'status': subscriber_import.subscriber_status}
 
-                            defaults = {'status': subscriber_import.subscriber_status}
+                        for column_index, subscriber_field_name in columns_mapping.items():
+                            field_parser = ImportFields.PARSERS[subscriber_field_name]
+                            cleaned_field_data = field_parser(row[column_index])
+                            defaults[subscriber_field_name] = cleaned_field_data
 
-                            for column_index, subscriber_field_name in columns_mapping.items():
-                                field_parser = ImportFields.PARSERS[subscriber_field_name]
-                                cleaned_field_data = field_parser(row[column_index])
-                                defaults[subscriber_field_name] = cleaned_field_data
+                        email_name, domain_part = defaults['email'].rsplit('@', 1)
+                        domain_name = f'@{domain_part}'
 
-                            email_name, domain_part = defaults['email'].rsplit('@', 1)
-                            domain_name = '@' + domain_part
+                        try:
+                            email_domain = cached_domains[domain_name]
+                        except KeyError:
+                            email_domain, created = Domain.objects.get_or_create(name=domain_name)
+                            cached_domains[domain_name] = email_domain
 
-                            try:
-                                email_domain = cached_domains[domain_name]
-                            except KeyError:
-                                email_domain, created = Domain.objects.get_or_create(name=domain_name)
-                                cached_domains[domain_name] = email_domain
+                        defaults['domain'] = email_domain
 
-                            defaults['domain'] = email_domain
+                        subscriber_queryset = Subscriber.objects.filter(
+                            email__iexact=defaults['email'],
+                            mailing_list_id=subscriber_import.mailing_list_id,
+                        )
+                        subscriber_exists = subscriber_queryset.exists()
 
-                            subscriber_queryset = Subscriber.objects.filter(
+                        if (
+                            subscriber_import.strategy
+                            == ImportStrategies.CREATE
+                            and not subscriber_exists
+                        ):
+                            subscriber = Subscriber.objects.create(
+                                mailing_list_id=subscriber_import.mailing_list_id,
+                                **defaults
+                            )
+                            subscriber_created += 1
+                        elif (
+                            subscriber_import.strategy
+                            == ImportStrategies.CREATE
+                            or subscriber_import.strategy
+                            == ImportStrategies.UPDATE
+                            and not subscriber_exists
+                        ):
+                            subscriber_skipped += 1
+
+                        elif (
+                            subscriber_import.strategy
+                            == ImportStrategies.UPDATE
+                        ):
+                            subscriber_queryset.update(update_date=timezone.now(), **defaults)
+                            subscriber = subscriber_queryset.get()
+                        elif (
+                            subscriber_import.strategy
+                            == ImportStrategies.UPDATE_OR_CREATE
+                        ):
+                            subscriber, created = Subscriber.objects.update_or_create(
                                 email__iexact=defaults['email'],
                                 mailing_list_id=subscriber_import.mailing_list_id,
+                                defaults=defaults
                             )
-                            subscriber_exists = subscriber_queryset.exists()
+                            if created:
+                                subscriber_created += 1
+                            else:
+                                subscriber.update_date = timezone.now()
+                                subscriber.save(update_fields=['update_date'])
+                                subscriber_updated += 1
 
-                            if subscriber_import.strategy == ImportStrategies.CREATE:
-                                if not subscriber_exists:
-                                    subscriber = Subscriber.objects.create(
-                                        mailing_list_id=subscriber_import.mailing_list_id,
-                                        **defaults
-                                    )
-                                    subscriber_created += 1
-                                else:
-                                    subscriber_skipped += 1
+                        if subscriber is not None:
+                            subscriber.create_activity(ActivityTypes.IMPORTED)
 
-                            elif subscriber_import.strategy == ImportStrategies.UPDATE:
-                                if subscriber_exists:
-                                    subscriber_queryset.update(update_date=timezone.now(), **defaults)
-                                    subscriber = subscriber_queryset.get()
-                                else:
-                                    subscriber_skipped += 1
-
-                            elif subscriber_import.strategy == ImportStrategies.UPDATE_OR_CREATE:
-                                subscriber, created = Subscriber.objects.update_or_create(
-                                    email__iexact=defaults['email'],
-                                    mailing_list_id=subscriber_import.mailing_list_id,
-                                    defaults=defaults
-                                )
-                                if created:
-                                    subscriber_created += 1
-                                else:
-                                    subscriber.update_date = timezone.now()
-                                    subscriber.save(update_fields=['update_date'])
-                                    subscriber_updated += 1
-
-                            if subscriber is not None:
-                                subscriber.create_activity(ActivityTypes.IMPORTED)
-
-                subscriber_import.mailing_list.update_subscribers_count()
-                import_status = ImportStatus.COMPLETED
-                notification_action = Actions.IMPORT_COMPLETED
-                output_message = 'The subscriber import "%s" completed with success. %s created, %s updated, ' \
-                                 '%s skipped.' % (subscriber_import_id, subscriber_created, subscriber_updated,
-                                                  subscriber_skipped)
-            except Exception:
-                import_status = ImportStatus.ERRORED
-                notification_action = Actions.IMPORT_ERRORED
-                output_message = 'An error occurred while importing the file "%s".' % subscriber_import_id
-                logger.exception(output_message)
-            finally:
-                subscriber_import.status = import_status
-                subscriber_import.save(update_fields=['status'])
-                Notification.objects.create(user=subscriber_import.user, action=notification_action,
-                                            text=output_message)
-                return output_message
-        else:
-            return 'The subscriber import file "%s" was not queued to be imported.' % subscriber_import_id
+            subscriber_import.mailing_list.update_subscribers_count()
+            import_status = ImportStatus.COMPLETED
+            notification_action = Actions.IMPORT_COMPLETED
+            output_message = f'The subscriber import "{subscriber_import_id}" completed with success. {subscriber_created} created, {subscriber_updated} updated, {subscriber_skipped} skipped.'
+        except Exception:
+            import_status = ImportStatus.ERRORED
+            notification_action = Actions.IMPORT_ERRORED
+            output_message = f'An error occurred while importing the file "{subscriber_import_id}".'
+            logger.exception(output_message)
+        finally:
+            subscriber_import.status = import_status
+            subscriber_import.save(update_fields=['status'])
+            Notification.objects.create(user=subscriber_import.user, action=notification_action,
+                                        text=output_message)
+            return output_message
     except SubscriberImport.DoesNotExist:
-        return 'Subscriber import file "%s" does not exist.' % subscriber_import_id
+        return f'Subscriber import file "{subscriber_import_id}" does not exist.'

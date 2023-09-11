@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 @require_POST
 def manage(request):
     for k, v in request.POST.items():
-        print('%s ==> %s' % (k, v))
+        print(f'{k} ==> {v}')
 
     subject = request.POST.get('subject', '')
     subject = subject.strip().lower()
@@ -52,7 +52,9 @@ def subscribe(request, mailing_list_uuid):
     is_limited = getattr(request, 'limited', False)
 
     if is_limited:
-        logger.warning('IP address "%s" exceeded rate limit 10/5m for subscribe view.' % get_client_ip(request))
+        logger.warning(
+            f'IP address "{get_client_ip(request)}" exceeded rate limit 10/5m for subscribe view.'
+        )
         messages.warning(request, _('Too many requests. Your IP address is blocked for 5 minutes.'))
 
     if request.method == 'POST' and not is_limited:
@@ -136,7 +138,9 @@ def unsubscribe_manual(request, mailing_list_uuid):
 
     if is_limited:
         messages.warning(request, _('Too many requests. Your IP address is blocked for 5 minutes.'))
-        logger.warning('IP address "%s" exceeded rate limit 5/5m for unsubscribe view.' % get_client_ip(request))
+        logger.warning(
+            f'IP address "{get_client_ip(request)}" exceeded rate limit 5/5m for unsubscribe view.'
+        )
 
     if request.method == 'POST' and not is_limited:
         form = UnsubscribeForm(mailing_list=mailing_list, data=request.POST)

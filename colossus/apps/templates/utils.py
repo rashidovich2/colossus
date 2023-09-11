@@ -21,7 +21,7 @@ def get_block_source(template_source, block_name):
     # Find the open block for the given name
     match = re.search(NAMED_BLOCK_RE % (block_name,), template_source)
     if match is None:
-        raise ValueError('Template block %s not found' % block_name)
+        raise ValueError(f'Template block {block_name} not found')
     end = inner_start = start = match.end()
     end_width = 0
     while True:

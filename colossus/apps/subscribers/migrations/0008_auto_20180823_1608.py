@@ -7,11 +7,11 @@ import django.db.models.deletion
 def create_domains(apps, schema_editor):
     Domain = apps.get_model('subscribers', 'Domain')
     Subscriber = apps.get_model('subscribers', 'Subscriber')
-    domain_cache = dict()
+    domain_cache = {}
     with transaction.atomic():
         for subscriber in Subscriber.objects.all():
             email_name, domain_part = subscriber.email.rsplit('@', 1)
-            domain_name = '@' + domain_part
+            domain_name = f'@{domain_part}'
 
             if domain_name not in domain_cache:
                 domain_cache[domain_name], created = Domain.objects.get_or_create(name=domain_name)

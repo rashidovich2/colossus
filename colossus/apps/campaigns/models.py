@@ -136,7 +136,7 @@ class Campaign(models.Model):
     def replicate(self):
         copy = gettext(' (copy)')
         slice_at = 100 - len(copy)
-        name = '%s%s' % (self.name[:slice_at], copy)
+        name = f'{self.name[:slice_at]}{copy}'
 
         replicated_campaign = Campaign.objects.create(
             name=name,
@@ -145,7 +145,7 @@ class Campaign(models.Model):
             status=CampaignStatus.DRAFT,
         )
 
-        replicated_emails = list()
+        replicated_emails = []
 
         for email in self.emails.all():
             replicated_email = Email(
@@ -201,8 +201,9 @@ class Campaign(models.Model):
 
         :return: All links associated with the campaign, ordered by the total number of clicks
         """
-        links = Link.objects.filter(email__campaign=self).order_by('-total_clicks_count')
-        return links
+        return Link.objects.filter(email__campaign=self).order_by(
+            '-total_clicks_count'
+        )
 
 
 class Email(models.Model):
@@ -263,7 +264,7 @@ class Email(models.Model):
 
     def get_from(self) -> str:
         if self.from_name:
-            return '%s <%s>' % (self.from_name, self.from_email)
+            return f'{self.from_name} <{self.from_email}>'
         return self.from_email
 
     def get_base_template(self) -> Template:
@@ -272,23 +273,20 @@ class Email(models.Model):
         Fallback to default basic template defined by EmailTemplate.
         """
         if self.template_content:
-            template = Template(self.template_content)
-        else:
-            template_string = EmailTemplate.objects.default_content()
-            template = Template(template_string)
-        return template
+            return Template(self.template_content)
+        template_string = EmailTemplate.objects.default_content()
+        return Template(template_string)
 
     def set_blocks(self, blocks=None):
         if blocks is None:
             old_blocks = self.get_blocks()
-            blocks = dict()
+            blocks = {}
             template = self.get_base_template()
             template_blocks = get_template_blocks(template)
             for block_name, block_content in template_blocks.items():
                 inherited_content = block_content
                 if block_name in old_blocks.keys():
-                    old_block_content = old_blocks.get(block_name, '').strip()
-                    if old_block_content:
+                    if old_block_content := old_blocks.get(block_name, '').strip():
                         inherited_content = old_blocks[block_name]
                 blocks[block_name] = inherited_content
         self.content = json.dumps(blocks)
@@ -355,9 +353,11 @@ class Email(models.Model):
         """
         virtual_template = ['{%% extends %s %%}' % self.BASE_TEMPLATE_VAR, ]
         blocks = self.get_blocks()
-        for block_key, block_content in blocks.items():
-            if block_content:
-                virtual_template.append('{%% block %s %%}\n%s\n{%% endblock %%}' % (block_key, block_content))
+        virtual_template.extend(
+            '{%% block %s %%}\n%s\n{%% endblock %%}' % (block_key, block_content)
+            for block_key, block_content in blocks.items()
+            if block_content
+        )
         return '\n\n'.join(virtual_template)
 
     def _render(self, template_string, context_dict) -> str:
@@ -371,19 +371,19 @@ class Email(models.Model):
 
     def _enable_click_tracking(self, html, index=0):
         urls = re.findall(r'(?i)(href=["\']?)(https?://[^"\' >]+)', html)
+        protocol = 'http'
         for data in urls:
             href = data[0]
             url = data[1]
             link, created = Link.objects.get_or_create(email=self, url=url, index=index)
             current_site = get_current_site(request=None)
-            protocol = 'http'
             domain = current_site.domain
             # We cannot use django.urls.reverse here because part of the kwargs
             # will be processed during the sending campaign (including the `subscriber_uuid`)
             # With the `{{ uuid }}` we are introducing an extra django template variable
             # which will be later used to replace with the subscriber's uuid.
             track_url = '%s://%s/track/click/%s/{{uuid}}/' % (protocol, domain, link.uuid)
-            html = html.replace('%s%s' % (href, url), '%s%s' % (href, track_url), 1)
+            html = html.replace(f'{href}{url}', f'{href}{track_url}', 1)
             index += 1
         return html, index
 
@@ -406,7 +406,7 @@ class Email(models.Model):
             body.append(img_tag)
             self.template_content = str(soup)
         else:
-            self.template_content = '%s %s' % (self.template_content, img_tag)
+            self.template_content = f'{self.template_content} {img_tag}'
 
     def update_clicks_count(self) -> tuple:
         qs = self.activities.filter(activity_type=ActivityTypes.CLICKED) \
@@ -473,9 +473,10 @@ class Link(models.Model):
 
         :return: True if it's safe to delete the link, False otherwise.
         """
-        if self.email is None or self.email.campaign.status != CampaignStatus.DRAFT:
-            return False
-        return True
+        return (
+            self.email is not None
+            and self.email.campaign.status == CampaignStatus.DRAFT
+        )
 
     @property
     def short_uuid(self) -> str:

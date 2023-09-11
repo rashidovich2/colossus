@@ -49,7 +49,10 @@ WSGI_APPLICATION = 'colossus.wsgi.application'
 
 DATABASES = {
     'default': dj_database_url.config(
-        default=config('DATABASE_URL', default='sqlite:///%s' % os.path.join(BASE_DIR, 'db.sqlite3'))
+        default=config(
+            'DATABASE_URL',
+            default=f"sqlite:///{os.path.join(BASE_DIR, 'db.sqlite3')}",
+        )
     )
 }
 
@@ -205,11 +208,7 @@ MESSAGE_TAGS = {
     messages_constants.ERROR: 'alert-danger',
 }
 
-if DEBUG:
-    MESSAGE_LEVEL = messages_constants.DEBUG
-else:
-    MESSAGE_LEVEL = messages_constants.INFO
-
+MESSAGE_LEVEL = messages_constants.DEBUG if DEBUG else messages_constants.INFO
 GEOIP_PATH = os.path.join(BASE_DIR, 'bin/GeoLite2')
 
 

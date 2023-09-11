@@ -24,12 +24,11 @@ class Chart:
         raise NotImplementedError
 
     def get_settings(self):
-        settings = {
+        return {
             'type': self.get_chart_type(),
             'data': self.get_data(),
-            'options': self.get_options()
+            'options': self.get_options(),
         }
-        return settings
 
 
 class SubscriptionsSummaryChart(Chart):
@@ -57,10 +56,10 @@ class SubscriptionsSummaryChart(Chart):
         subscribed_expression = Count('id', filter=Q(activity_type=ActivityTypes.SUBSCRIBED))
         unsubscribed_expression = Count('id', filter=Q(activity_type=ActivityTypes.UNSUBSCRIBED))
         activities = Activity.objects \
-            .filter(subscriber__mailing_list=self.mailing_list, date__date__gt=thirty_days_ago) \
-            .values('date__date') \
-            .annotate(subscribed=subscribed_expression, unsubscribed=unsubscribed_expression) \
-            .order_by('date__date')
+                .filter(subscriber__mailing_list=self.mailing_list, date__date__gt=thirty_days_ago) \
+                .values('date__date') \
+                .annotate(subscribed=subscribed_expression, unsubscribed=unsubscribed_expression) \
+                .order_by('date__date')
 
         # First initialize the `series` dictionary with all last 30 days.
         # This is necessary because if the count of subscribers for a given
@@ -83,14 +82,14 @@ class SubscriptionsSummaryChart(Chart):
         # Here is time to grab the info and place on lists for labels
         # and the data. Note that we are sorting the series data so to
         # display from the oldest day to the most recent.
-        labels = list()
-        subscriptions = list()
-        unsubscriptions = list()
+        labels = []
+        subscriptions = []
+        unsubscriptions = []
         for key, value in sorted(series.items(), key=lambda e: e[1]['order'], reverse=True):
             labels.append(key)
             subscriptions.append(value['sub'])
             unsubscriptions.append(value['unsub'])
-        data = {
+        return {
             'labels': labels,
             'datasets': [
                 {
@@ -99,29 +98,19 @@ class SubscriptionsSummaryChart(Chart):
                     'backgroundColor': 'transparent',
                     'data': unsubscriptions,
                     'type': 'line',
-                    'borderDash': [10, 5]
+                    'borderDash': [10, 5],
                 },
                 {
                     'label': _('Subscriptions'),
                     'borderColor': '#3a99fc',
                     'backgroundColor': '#3a99fc',
-                    'data': subscriptions
-                }
-            ]
+                    'data': subscriptions,
+                },
+            ],
         }
-        return data
 
     def get_options(self):
-        options = {
-            'scales': {
-                'yAxes': [{
-                    'ticks': {
-                        'beginAtZero': True
-                    }
-                }]
-            }
-        }
-        return options
+        return {'scales': {'yAxes': [{'ticks': {'beginAtZero': True}}]}}
 
 
 class DoughnutChart(Chart):
@@ -130,27 +119,23 @@ class DoughnutChart(Chart):
         self.mailing_list = mailing_list
 
     def get_options(self):
-        options = {
+        return {
             'responsive': True,
             'maintainAspectRatio': True,
             'legend': {
                 'position': 'left',
             },
-            'animation': {
-                'animateScale': True,
-                'animateRotate': True
-            }
+            'animation': {'animateScale': True, 'animateRotate': True},
         }
-        return options
 
 
 class ListLocationsChart(DoughnutChart):
     def get_data(self):
         locations = self.mailing_list.get_active_subscribers() \
-            .select_related('location') \
-            .values('location__country__code', 'location__country__name') \
-            .annotate(total=Count('location__country__code')) \
-            .order_by('-total')[:5]
+                .select_related('location') \
+                .values('location__country__code', 'location__country__name') \
+                .annotate(total=Count('location__country__code')) \
+                .order_by('-total')[:5]
 
         locations_data = [location['total'] for location in locations]
         labels_data = [location['location__country__name'] for location in locations]
@@ -162,23 +147,24 @@ class ListLocationsChart(DoughnutChart):
             locations_data.append(others)
             labels_data.append(_('Other locations'))
 
-        data = {
-            'datasets': [{
-                'data': locations_data,
-                'backgroundColor': self.BACKGROUND_COLOR,
-            }],
-            'labels': labels_data
+        return {
+            'datasets': [
+                {
+                    'data': locations_data,
+                    'backgroundColor': self.BACKGROUND_COLOR,
+                }
+            ],
+            'labels': labels_data,
         }
-        return data
 
 
 class ListDomainsChart(DoughnutChart):
     def get_data(self):
         domains = self.mailing_list.get_active_subscribers() \
-            .select_related('domain') \
-            .values('domain__name') \
-            .annotate(total=Count('domain__name')) \
-            .order_by('-total')[:5]
+                .select_related('domain') \
+                .values('domain__name') \
+                .annotate(total=Count('domain__name')) \
+                .order_by('-total')[:5]
 
         domains_data = [domain['total'] for domain in domains]
         domains_labels = [domain['domain__name'] for domain in domains]
@@ -190,11 +176,12 @@ class ListDomainsChart(DoughnutChart):
             domains_data.append(others)
             domains_labels.append(_('Other domains'))
 
-        data = {
-            'datasets': [{
-                'data': domains_data,
-                'backgroundColor': self.BACKGROUND_COLOR,
-            }],
-            'labels': domains_labels
+        return {
+            'datasets': [
+                {
+                    'data': domains_data,
+                    'backgroundColor': self.BACKGROUND_COLOR,
+                }
+            ],
+            'labels': domains_labels,
         }
-        return data

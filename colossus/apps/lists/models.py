@@ -197,7 +197,7 @@ class SubscriberImport(models.Model):
         try:
             columns_mapping = json.loads(self.columns_mapping)
         except (TypeError, json.JSONDecodeError):
-            columns_mapping = dict()
+            columns_mapping = {}
         return {int(key): value for key, value in columns_mapping.items()}
 
     def get_headings(self):
@@ -212,7 +212,7 @@ class SubscriberImport(models.Model):
         return ', '.join(self.get_headings())
 
     def get_rows(self, limit=None):
-        rows = list()
+        rows = []
         with open(self.file.path, 'r') as csvfile:
             reader = csv.reader(csvfile)
             # skip header
@@ -231,6 +231,6 @@ class SubscriberImport(models.Model):
             dialect = csv.Sniffer().sniff(csvfile.read(1024))
             csvfile.seek(0)
             reader = csv.reader(csvfile, dialect)
-            self.size = sum(1 for row in reader)
+            self.size = len(reader)
         if save:
             self.save(update_fields=['size'])

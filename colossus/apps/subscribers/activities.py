@@ -81,5 +81,4 @@ def render_activity(activity):
         ActivityTypes.CLEANED: lambda a: CLEANED_TEMPLATE % a.get_formatted_date()
     }
     renderer = renderers[activity.activity_type]
-    html = renderer(activity)
-    return html
+    return renderer(activity)

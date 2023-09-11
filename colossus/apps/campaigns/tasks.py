@@ -19,13 +19,18 @@ def send_campaign_task(campaign_id):
         campaign = Campaign.objects.get(pk=campaign_id)
         if campaign.status == CampaignStatus.QUEUED:
             send_campaign(campaign)
-            mail_managers('Mailing campaign has been sent',
-                          'Your campaign "%s" is on its way to your subscribers!' % campaign.email.subject)
+            mail_managers(
+                'Mailing campaign has been sent',
+                f'Your campaign "{campaign.email.subject}" is on its way to your subscribers!',
+            )
         else:
-            logger.warning('Campaign "%s" was placed in a queue with status "%s".' % (campaign_id,
-                                                                                      campaign.get_status_display()))
+            logger.warning(
+                f'Campaign "{campaign_id}" was placed in a queue with status "{campaign.get_status_display()}".'
+            )
     except Campaign.DoesNotExist:
-        logger.exception('Campaign "%s" was placed in a queue but it does not exist.' % campaign_id)
+        logger.exception(
+            f'Campaign "{campaign_id}" was placed in a queue but it does not exist.'
+        )
 
 
 @shared_task

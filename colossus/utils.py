@@ -33,12 +33,11 @@ def get_client_ip(request: HttpRequest) -> str:
     :param request: An HTTP Request object
     :return: The client IP address extracted from the HTTP Request
     """
-    x_forwarded_for: Optional[str] = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0]
-    else:
-        ip = request.META.get('REMOTE_ADDR')
-    return ip
+    return (
+        x_forwarded_for.split(',')[0]
+        if (x_forwarded_for := request.META.get('HTTP_X_FORWARDED_FOR'))
+        else request.META.get('REMOTE_ADDR')
+    )
 
 
 def ip_address_key(group: str, request: HttpRequest) -> str:
@@ -76,7 +75,7 @@ def get_location(ip_address: str) -> Optional[City]:
             if geodata.get('city') is not None:
                 city, created = City.objects.get_or_create(name=geodata['city'], country=country)
     except AddressNotFoundError:
-        logger.warning('Address not found for ip_address = "%s"' % ip_address)
+        logger.warning(f'Address not found for ip_address = "{ip_address}"')
     return city
 
 
@@ -100,5 +99,4 @@ def get_absolute_url(urlname: str, kwargs: dict = None) -> str:
     protocol = 'https' if settings.COLOSSUS_HTTPS_ONLY else 'http'
     site = get_current_site(request=None)
     path = reverse(urlname, kwargs=kwargs)
-    absolute_url = '%s://%s%s' % (protocol, site.domain, path)
-    return absolute_url
+    return f'{protocol}://{site.domain}{path}'

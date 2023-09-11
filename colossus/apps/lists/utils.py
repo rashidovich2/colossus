@@ -16,6 +16,5 @@ def normalize_email(email: str) -> str:
 def normalize_text(text: str) -> str:
     if text is None:
         return ''
-    text = str(text)
-    text = ' '.join(text.split())
-    return text
+    text = text
+    return ' '.join(text.split())
