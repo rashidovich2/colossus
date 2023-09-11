@@ -24,10 +24,11 @@ class SubscribeForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
         email = cleaned_data.get('email')
-        is_subscribed = Subscriber.objects \
-            .filter(email__iexact=email, status=Status.SUBSCRIBED, mailing_list=self.mailing_list) \
-            .exists()
-        if is_subscribed:
+        if is_subscribed := Subscriber.objects.filter(
+            email__iexact=email,
+            status=Status.SUBSCRIBED,
+            mailing_list=self.mailing_list,
+        ).exists():
             email_validation_error = ValidationError(
                 gettext('The email address "%(email)s" is already subscribed to this list.'),
                 params={'email': email},
@@ -45,7 +46,7 @@ class SubscribeForm(forms.ModelForm):
         email = self.cleaned_data.get('email')
 
         email_name, domain_part = email.rsplit('@', 1)
-        domain_name = '@' + domain_part
+        domain_name = f'@{domain_part}'
         email_domain, created = Domain.objects.get_or_create(name=domain_name)
 
         subscriber, created = Subscriber.objects.get_or_create(email=email, mailing_list=self.mailing_list, defaults={
@@ -67,7 +68,7 @@ class SubscribeForm(forms.ModelForm):
             'mailing_list_uuid': self.mailing_list.uuid,
             'token': token.text
         })
-        confirm_link = '%s://%s%s' % (protocol, domain, path)
+        confirm_link = f'{protocol}://{domain}{path}'
 
         confirm_email = self.mailing_list.get_confirm_email_template()
         confirm_email.send(subscriber.get_email(), {

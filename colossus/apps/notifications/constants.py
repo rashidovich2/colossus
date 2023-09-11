@@ -1,6 +1,8 @@
 from django.utils.translation import gettext_lazy as _
 
 
+
+
 class Actions:
     IMPORT_COMPLETED = 1
     IMPORT_ERRORED = 2
@@ -26,4 +28,4 @@ class Actions:
         }
     }
 
-    CHOICES = tuple([(key, options['label']) for key, options in ITEMS.items()])
+    CHOICES = tuple((key, options['label']) for key, options in ITEMS.items())

@@ -98,7 +98,7 @@ class CampaignEditView(CampaignMixin, DetailView):
 
     def get(self, request, *args, **kwargs):
         response = super().get(request, *args, **kwargs)
-        messages.debug(request, '[debug] campaign uuid: %s' % self.object.uuid)
+        messages.debug(request, f'[debug] campaign uuid: {self.object.uuid}')
         return response
 
     def get_context_data(self, **kwargs):
@@ -169,27 +169,27 @@ class CampaignReportsView(CampaignMixin, DetailView):
         links = campaign.get_links().only('url', 'total_clicks_count')[:10]
 
         unsubscribed_count = Activity.objects \
-            .filter(campaign_id=self.kwargs.get('pk'), activity_type=ActivityTypes.UNSUBSCRIBED) \
-            .count()
+                .filter(campaign_id=self.kwargs.get('pk'), activity_type=ActivityTypes.UNSUBSCRIBED) \
+                .count()
 
         subscriber_open_activities = Activity.objects \
-            .filter(email__campaign_id=self.kwargs.get('pk'), activity_type=ActivityTypes.OPENED) \
-            .values('subscriber__id', 'subscriber__email') \
-            .annotate(total_opens=Count('id')) \
-            .order_by('-total_opens')[:10]
+                .filter(email__campaign_id=self.kwargs.get('pk'), activity_type=ActivityTypes.OPENED) \
+                .values('subscriber__id', 'subscriber__email') \
+                .annotate(total_opens=Count('id')) \
+                .order_by('-total_opens')[:10]
 
         location_open_activities = Activity.objects \
-            .filter(email__campaign_id=self.kwargs.get('pk'), activity_type=ActivityTypes.OPENED) \
-            .values('location__country__code', 'location__country__name') \
-            .annotate(total_opens=Count('id')) \
-            .order_by('-total_opens')[:10]
+                .filter(email__campaign_id=self.kwargs.get('pk'), activity_type=ActivityTypes.OPENED) \
+                .values('location__country__code', 'location__country__name') \
+                .annotate(total_opens=Count('id')) \
+                .order_by('-total_opens')[:10]
 
-        kwargs.update({
+        kwargs |= {
             'links': links,
             'unsubscribed_count': unsubscribed_count,
             'subscriber_open_activities': subscriber_open_activities,
             'location_open_activities': location_open_activities,
-        })
+        }
         return super().get_context_data(**kwargs)
 
 
@@ -202,14 +202,12 @@ class CampaignReportsLocationsView(CampaignMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         location_open_activities = Activity.objects \
-            .filter(email__campaign_id=self.kwargs.get('pk'), activity_type=ActivityTypes.OPENED) \
-            .values('location__country__code', 'location__country__name') \
-            .annotate(total_opens=Count('id')) \
-            .order_by('-total_opens')
+                .filter(email__campaign_id=self.kwargs.get('pk'), activity_type=ActivityTypes.OPENED) \
+                .values('location__country__code', 'location__country__name') \
+                .annotate(total_opens=Count('id')) \
+                .order_by('-total_opens')
 
-        kwargs.update({
-            'location_open_activities': location_open_activities,
-        })
+        kwargs['location_open_activities'] = location_open_activities
         return super().get_context_data(**kwargs)
 
 
@@ -263,7 +261,7 @@ def load_list_tags(request):
         mailing_list = MailingList.objects.get(pk=list_id)
         tags = mailing_list.tags.order_by('name')
     except MailingList.DoesNotExist:
-        tags = list()
+        tags = []
 
     context = {
         'tags': tags
@@ -438,7 +436,7 @@ def campaign_preview_email(request, pk):
         form = EmailEditorForm(email, data=request.POST)
         if form.is_valid():
             email = form.save(commit=False)
-    context = dict()
+    context = {}
     if campaign.mailing_list:
         context['unsub'] = reverse('subscribers:unsubscribe_manual', kwargs={
             'mailing_list_uuid': campaign.mailing_list.uuid

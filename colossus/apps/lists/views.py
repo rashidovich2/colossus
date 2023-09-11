@@ -147,8 +147,7 @@ class SubscriberListView(MailingListMixin, ListView):
     def get_queryset(self):
         queryset = self.model.objects.filter(mailing_list_id=self.kwargs.get('pk'))
 
-        tags_filter = self.request.GET.getlist('tags__in')
-        if tags_filter:
+        if tags_filter := self.request.GET.getlist('tags__in'):
             queryset = queryset.filter(tags__in=tags_filter)
 
         if self.request.GET.get('q', ''):
@@ -403,8 +402,7 @@ class SubscriptionFormTemplateUpdateView(FormTemplateMixin, MailingListMixin, Up
 
     def get_form_class(self):
         fields = self.object.settings['fields']
-        form_class = modelform_factory(self.model, fields=fields)
-        return form_class
+        return modelform_factory(self.model, fields=fields)
 
 
 @method_decorator(login_required, name='dispatch')
@@ -533,5 +531,5 @@ def download_subscriber_import(request, pk, import_pk):
     subscriber_import = get_object_or_404(SubscriberImport, pk=import_pk, mailing_list_id=pk)
     filename = subscriber_import.file.name.split('/')[-1]
     response = HttpResponse(subscriber_import.file.read(), content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="%s"' % filename
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response

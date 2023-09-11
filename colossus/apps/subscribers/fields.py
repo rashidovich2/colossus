@@ -22,7 +22,7 @@ class MultipleEmailField(forms.CharField):
         """
         value = super().clean(value)
         emails = value.replace(',', '\n').splitlines()
-        cleaned_emails = dict()
+        cleaned_emails = {}
         for email in emails:
             email = Subscriber.objects.normalize_email(email)
             validate_email(email)

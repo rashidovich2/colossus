@@ -127,10 +127,10 @@ class EmailEditorForm(forms.Form):
         blocks = email.get_blocks()
         for block_key, block_content in blocks.items():
             self.fields[block_key] = forms.CharField(
-                label=_('Block %s' % block_key),
+                label=_(f'Block {block_key}'),
                 required=False,
                 initial=block_content,
-                widget=forms.Textarea()
+                widget=forms.Textarea(),
             )
 
     def save(self, commit=True):

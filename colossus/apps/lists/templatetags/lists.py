@@ -18,5 +18,5 @@ def import_status_badge(subscriber_import):
     }
     badge_class = css_classes[subscriber_import.status]
     badge_text = subscriber_import.get_status_display()
-    html = '<span class="badge %s badge-pill">%s</span>' % (badge_class, badge_text)
+    html = f'<span class="badge {badge_class} badge-pill">{badge_text}</span>'
     return mark_safe(html)

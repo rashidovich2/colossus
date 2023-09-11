@@ -35,11 +35,8 @@ class Option(models.Model):
         db_table = 'colossus_options'
 
     def __str__(self):
-        if len(self.value) > 30:
-            value = '%s...' % self.value[:30]
-        else:
-            value = self.value
-        return '%s=%s' % (self.key, value)
+        value = f'{self.value[:30]}...' if len(self.value) > 30 else self.value
+        return f'{self.key}={value}'
 
 
 class Country(models.Model):

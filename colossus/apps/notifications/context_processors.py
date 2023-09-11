@@ -5,4 +5,4 @@ def notifications(request):
             'notifications_count': count
         }
     else:
-        return dict()
+        return {}

@@ -29,14 +29,14 @@ class TagListViewTests(TagTestCase):
         self.assertEqual(2, len(context['tags']))
 
     def test_html_content(self):
-        contents = list()
+        contents = []
 
         for tag in self.tags:
             edit_url = reverse('lists:delete_tag', kwargs={'pk': tag.mailing_list.pk, 'tag_pk': tag.pk})
             delete_url = reverse('lists:delete_tag', kwargs={'pk': tag.mailing_list.pk, 'tag_pk': tag.pk})
-            contents.append('href="{0}"'.format(edit_url))
-            contents.append('href="{0}"'.format(delete_url))
-
+            contents.extend(
+                ('href="{0}"'.format(edit_url), 'href="{0}"'.format(delete_url))
+            )
         for content in contents:
             with self.subTest(content=content):
                 self.assertContains(self.response, content)

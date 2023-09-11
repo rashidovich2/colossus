@@ -15,5 +15,4 @@ class UserTimezoneMiddleware:
             except UnknownTimeZoneError:
                 timezone.deactivate()
 
-        response = self.get_response(request)
-        return response
+        return self.get_response(request)

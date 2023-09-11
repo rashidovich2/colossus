@@ -34,7 +34,7 @@ def send_campaign_email(email, context, to, connection=None, is_test=False):
 
     subject = email.subject
     if is_test:
-        subject = '[%s] %s' % (_('Test'), subject)
+        subject = f"[{_('Test')}] {subject}"
 
     rich_text_message = email.render(context)
     plain_text_message = html2text.html2text(rich_text_message, bodywidth=2000)
@@ -42,22 +42,22 @@ def send_campaign_email(email, context, to, connection=None, is_test=False):
     # Remove track open from plain text version
     plain_text_message = re.sub(r'(!\[\]\(https?://.*/track/open/.*/\)\n\n)', '', plain_text_message, 1)
 
-    headers = dict()
+    headers = {}
     if not is_test:
-        headers['List-ID'] = '%s <%s.list-id.%s>' % (
-            email.campaign.mailing_list.name,
-            email.campaign.mailing_list.uuid,
-            context['domain']
-        ),
+        headers['List-ID'] = (
+            f"{email.campaign.mailing_list.name} <{email.campaign.mailing_list.uuid}.list-id.{context['domain']}>",
+        )
         headers['List-Post'] = 'NO',
         headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click'
 
-        list_subscribe_header = ['<%s>' % context['sub']]
-        list_unsubscribe_header = ['<%s>' % context['unsub']]
+        list_subscribe_header = [f"<{context['sub']}>"]
+        list_unsubscribe_header = [f"<{context['unsub']}>"]
         if email.campaign.mailing_list.list_manager:
-            list_subscribe_header.append('<mailto:%s?subject=subscribe>' % email.campaign.mailing_list.list_manager)
+            list_subscribe_header.append(
+                f'<mailto:{email.campaign.mailing_list.list_manager}?subject=subscribe>'
+            )
             list_unsubscribe_header.append(
-                '<mailto:%s?subject=unsubscribe>' % email.campaign.mailing_list.list_manager
+                f'<mailto:{email.campaign.mailing_list.list_manager}?subject=unsubscribe>'
             )
 
         headers['List-Subscribe'] = ', '.join(list_subscribe_header)
@@ -77,7 +77,7 @@ def send_campaign_email(email, context, to, connection=None, is_test=False):
         message.send(fail_silently=False)
         return True
     except SMTPException:
-        logger.exception('Could not send email "%s" due to SMTP error.' % email.uuid)
+        logger.exception(f'Could not send email "{email.uuid}" due to SMTP error.')
         return False
 
 
@@ -125,8 +125,9 @@ def send_campaign(campaign):
     with get_connection() as connection:
         for subscriber in campaign.get_recipients():
             if not subscriber.activities.filter(activity_type=ActivityTypes.SENT, email=campaign.email).exists():
-                sent = send_campaign_email_subscriber(campaign.email, subscriber, site, connection)
-                if sent:
+                if sent := send_campaign_email_subscriber(
+                    campaign.email, subscriber, site, connection
+                ):
                     subscriber.create_activity(ActivityTypes.SENT, email=campaign.email)
                     subscriber.update_open_and_click_rate()
                     subscriber.last_sent = timezone.now()

@@ -532,7 +532,7 @@ class SubscriptionFormTemplateWelcomeEmailTests(TestCase):
         self.assertIn('maria@example.com', self.email.body)
 
     def test_unsubscribe_link_in_email_body(self):
-        self.assertIn('/unsubscribe/%s/' % self.mailing_list.uuid, self.email.body)
+        self.assertIn(f'/unsubscribe/{self.mailing_list.uuid}/', self.email.body)
 
     def test_email_to(self):
         self.assertEqual(['test@example.com', ], self.email.to)
@@ -572,7 +572,7 @@ class SubscriptionFormTemplateGoodbyeEmailTests(TestCase):
         self.assertIn('maria@example.com', self.email.body)
 
     def test_subscribe_link_in_email_body(self):
-        self.assertIn('/subscribe/%s/' % self.mailing_list.uuid, self.email.body)
+        self.assertIn(f'/subscribe/{self.mailing_list.uuid}/', self.email.body)
 
     def test_list_name_in_email_body(self):
         self.assertIn('***Test List***', self.email.body)

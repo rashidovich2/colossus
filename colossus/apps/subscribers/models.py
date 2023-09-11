@@ -82,7 +82,7 @@ class SubscriberManager(models.Manager):
         except ValueError:
             pass
         else:
-            email = email_name + '@' + domain_part.lower()
+            email = f'{email_name}@{domain_part.lower()}'
         return email
 
     def create_subscriber(self, email, **extra_fields):
@@ -160,7 +160,7 @@ class Subscriber(models.Model):
     def save(self, force_insert=False, force_update=False, using=None, update_fields=None):
         if self.__email != self.email:
             email_name, domain_part = self.email.rsplit('@', 1)
-            domain_name = '@' + domain_part
+            domain_name = f'@{domain_part}'
             email_domain, created = Domain.objects.get_or_create(name=domain_name)
             self.domain = email_domain
             if update_fields is not None and 'domain' not in update_fields:
@@ -186,16 +186,13 @@ class Subscriber(models.Model):
         email = self.email.lower().encode('utf-8')
         default = 'mm'
         size = 128
-        url = 'https://www.gravatar.com/avatar/{md5}?{params}'.format(
+        return 'https://www.gravatar.com/avatar/{md5}?{params}'.format(
             md5=hashlib.md5(email).hexdigest(),
-            params=urlencode({'d': default, 's': str(size)})
+            params=urlencode({'d': default, 's': str(size)}),
         )
-        return url
 
     def get_email(self):
-        if self.name:
-            return '%s <%s>' % (self.name, self.email)
-        return self.email
+        return f'{self.name} <{self.email}>' if self.name else self.email
 
     def confirm_subscription(self, request):
         ip_address = get_client_ip(request)
@@ -231,12 +228,8 @@ class Subscriber(models.Model):
             goodbye_email.send(self.get_email())
 
     def create_activity(self, activity_type, **activity_kwargs):
-        activity_kwargs.update({
-            'subscriber': self,
-            'activity_type': activity_type
-        })
-        activity = Activity.objects.create(**activity_kwargs)
-        return activity
+        activity_kwargs |= {'subscriber': self, 'activity_type': activity_type}
+        return Activity.objects.create(**activity_kwargs)
 
     def get_activities(self, **filter_kwargs):
         return self.activities \
@@ -431,8 +424,9 @@ class SubscriptionFormTemplate(models.Model):
 
     def get_default_content(self):
         content_template_name = self.settings['default_content']
-        html = render_to_string(content_template_name, {'mailing_list': self.mailing_list})
-        return html
+        return render_to_string(
+            content_template_name, {'mailing_list': self.mailing_list}
+        )
 
     def get_default_subject(self):
         if not self.is_email:
@@ -448,17 +442,16 @@ class SubscriptionFormTemplate(models.Model):
             raise FormTemplateIsNotForm
         from colossus.apps.subscribers import forms
         form_class_name = self.settings['form']
-        form_class = getattr(forms, form_class_name)
-        return form_class
+        return getattr(forms, form_class_name)
 
     def get_from_email(self):
         if self.from_name:
-            return '%s <%s>' % (self.from_name, self.from_email)
+            return f'{self.from_name} <{self.from_email}>'
         return self.from_email
 
     def render_template(self, extra_context: dict = None, form_kwargs: dict = None):
         if extra_context is None:
-            extra_context = dict()
+            extra_context = {}
 
         unsubscribe_absolute_url = get_absolute_url('subscribers:unsubscribe_manual', kwargs={
             'mailing_list_uuid': self.mailing_list.uuid,
@@ -479,16 +472,15 @@ class SubscriptionFormTemplate(models.Model):
 
         if self.is_form:
             if form_kwargs is None:
-                form_kwargs = dict()
+                form_kwargs = {}
 
             form_class = self.get_form_class()
             form = form_class(mailing_list=self.mailing_list, **form_kwargs)
             context['form'] = form
 
-        context.update(extra_context)
+        context |= extra_context
         content_template_name = self.settings['content_template_name']
-        html = render_to_string(content_template_name, context)
-        return html
+        return render_to_string(content_template_name, context)
 
     def send(self, to: str, context: dict = None):
         """
